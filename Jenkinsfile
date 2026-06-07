@@ -1,8 +1,7 @@
 // ==============================================================================
 // Declarative Jenkinsfile using Python Master Pipeline Runner
 // ==============================================================================
-// This pipeline configuration has 0 inline custom scripting blocks. It delegates
-// all execution stages directly to the Python master script (pipeline_runner.py).
+// Updated to use actual Jenkins Credential IDs mapped from the user's dashboard.
 
 pipeline {
     agent any
@@ -14,16 +13,15 @@ pipeline {
     }
 
     environment {
-        // Pinned Credential IDs configured inside Jenkins
-        AWS_CREDS_ID     = 'bankpro-aws-credentials'
-        AZURE_CREDS_ID   = 'bankpro-azure-credentials'
-        REGISTRY_CREDS_ID = 'bankpro-registry-credentials'
-        SSH_KEY_CREDS_ID  = 'bankpro-ssh-key'
+        // Pinned Credential IDs configured inside Jenkins Dashboard
+        AWS_CREDS_ID      = 'aws-creds'
+        REGISTRY_CREDS_ID = 'dockerhub-creds'
+        SSH_KEY_CREDS_ID  = 'kubeadm-ssh-key'
 
-        // Container Registry parameters
-        REGISTRY_SERVER  = 'bankproregistryprodsub.azurecr.io'
-        IMAGE_NAME       = 'bankpro-microservice'
-        IMAGE_TAG        = "${BUILD_NUMBER}"
+        // Docker Hub Container Registry parameters
+        REGISTRY_SERVER   = 'docker.io'
+        IMAGE_NAME        = 'dccloudimage/bankpro-microservice'
+        IMAGE_TAG         = "${BUILD_NUMBER}"
     }
 
     options {
@@ -71,12 +69,13 @@ pipeline {
                 // Bind cloud provider credentials and call Python runner to execute Terraform lifecycle
                 withCredentials([
                     usernamePassword(credentialsId: "${AWS_CREDS_ID}", usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY'),
-                    usernamePassword(credentialsId: "${AZURE_CREDS_ID}", usernameVariable: 'ARM_CLIENT_ID', passwordVariable: 'ARM_CLIENT_SECRET')
+                    string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
+                    string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
+                    string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
+                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
                 ]) {
                     withEnv([
                         "AWS_DEFAULT_REGION=us-east-1",
-                        "ARM_SUBSCRIPTION_ID=placeholder-subscription-id",
-                        "ARM_TENANT_ID=placeholder-tenant-id"
                     ]) {
                         sh "python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env ${params.DEPLOY_ENV}"
                     }
