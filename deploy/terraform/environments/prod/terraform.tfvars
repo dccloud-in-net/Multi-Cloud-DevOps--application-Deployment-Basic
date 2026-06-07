@@ -7,7 +7,7 @@ aws_region  = "us-east-1"
 
 # SSH Key Setup
 # ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPg5L7k3ZqA8kHwR1j/kR4d31w0eN5c3S1x/b0U1hU5w devops@bankpro.com"
-ssh_key_name   = "bankpro_prod_key"
+ssh_key_name   = "bankpro_prod_key_v2"
 
 # AWS Network Layout
 vpc_cidr = "10.4.0.0/16"

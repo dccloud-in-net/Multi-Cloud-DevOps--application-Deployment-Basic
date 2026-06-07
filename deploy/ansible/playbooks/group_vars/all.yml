@@ -1,0 +1,26 @@
+# ==============================================================================
+# Ansible Global Group Variables (all.yml)
+# ==============================================================================
+
+# Application parameters
+app_name: "bankpro-microservice"
+app_port: 8080
+app_profile: "prod"
+app_jvm_opts: "-Xms512m -Xmx1024m"
+
+# Registry details (populated from Terraform or Environment variables)
+registry_server: ""
+registry_username: ""
+registry_password: ""
+image_name: "bankpro-microservice"
+image_tag: "latest"
+
+# Nginx reverse proxy configuration
+nginx_http_port: 80
+nginx_server_name: "_"
+
+# OS-specific users to append to docker group
+docker_group_users:
+  - "ec2-user"
+  - "azureuser"
+  - "ubuntu"
