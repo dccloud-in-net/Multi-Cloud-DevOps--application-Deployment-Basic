@@ -6,7 +6,7 @@ environment = "dev"
 aws_region  = "us-east-1"
 
 # SSH Key Setup (Replace with actual developer public key, or let scripts generate)
-ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPg5L7k3ZqA8kHwR1j/kR4d31w0eN5c3S1x/b0U1hU5w devops@bankpro.com"
+# ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPg5L7k3ZqA8kHwR1j/kR4d31w0eN5c3S1x/b0U1hU5w devops@bankpro.com"
 ssh_key_name   = "bankpro_dev_key"
 
 # AWS Network Layout
