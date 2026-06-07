@@ -83,7 +83,7 @@ pipeline {
                         sh """
                             # Copy, sanitize carriage returns, and ensure a trailing newline
                             mkdir -p deploy/keys
-                            cat ${PRIVATE_KEY_PATH} | tr -d '\r' > deploy/keys/bankpro_deploy_key
+                            cat ${PRIVATE_KEY_PATH} | tr -d '\\r' > deploy/keys/bankpro_deploy_key
                             echo "" >> deploy/keys/bankpro_deploy_key
                             chmod 600 deploy/keys/bankpro_deploy_key
 
@@ -110,7 +110,7 @@ pipeline {
                     sh """
                         # Setup transient keys
                         mkdir -p deploy/keys
-                        cat ${PRIVATE_KEY_PATH} | tr -d '\r' > deploy/keys/bankpro_deploy_key
+                        cat ${PRIVATE_KEY_PATH} | tr -d '\\r' > deploy/keys/bankpro_deploy_key
                         echo "" >> deploy/keys/bankpro_deploy_key
                         chmod 600 deploy/keys/bankpro_deploy_key
 
