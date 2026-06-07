@@ -13,16 +13,20 @@ import sys
 import urllib.request
 import time
 
-def check_javac_version(javac_path):
-    """Runs javac -version for the given path and returns the major version number."""
+def check_java_bin_version(bin_path):
+    """Runs the java/javac binary with -version and returns the major version number."""
     try:
-        res = subprocess.run([javac_path, "-version"], capture_output=True, text=True)
+        res = subprocess.run([bin_path, "-version"], capture_output=True, text=True)
         output = res.stdout + res.stderr
-        parts = output.strip().split()
-        if len(parts) >= 2:
-            ver_str = parts[1]
-            major = int(ver_str.split(".")[1]) if ver_str.startswith("1.") else int(ver_str.split(".")[0])
-            return major
+        for line in output.splitlines():
+            if "version" in line or line.startswith("javac") or line.startswith("java"):
+                parts = line.split()
+                for part in parts:
+                    part = part.strip('"')
+                    if part.replace(".", "").replace("_", "").isdigit() or (len(part.split(".")) >= 2 and part.split(".")[0].isdigit()):
+                        ver_str = part
+                        major = int(ver_str.split(".")[1]) if ver_str.startswith("1.") else int(ver_str.split(".")[0])
+                        return major
     except Exception:
         pass
     return None
@@ -33,19 +37,24 @@ def setup_java_home():
     java_home = os.environ.get("JAVA_HOME")
     if java_home:
         javac_path = os.path.join(java_home, "bin", "javac")
-        major = check_javac_version(javac_path)
-        if major and major >= 17:
-            print(f"JAVA_HOME is already configured to a compatible version: {major} ({java_home})")
+        java_path = os.path.join(java_home, "bin", "java")
+        javac_ver = check_java_bin_version(javac_path)
+        java_ver = check_java_bin_version(java_path)
+        if javac_ver and java_ver and javac_ver >= 17 and java_ver >= 17:
+            print(f"JAVA_HOME is already configured to a compatible version: {java_ver} ({java_home})")
             return
         else:
-            print(f"Existing JAVA_HOME ({java_home}) is set to version {major}, which is < 17. Searching for compatible JDK...")
+            print(f"Existing JAVA_HOME ({java_home}) is incompatible (javac: {javac_ver}, java: {java_ver}). Searching for compatible JDK...")
 
-    # 2. If no compatible JAVA_HOME, check default javac in PATH
+    # 2. If no compatible JAVA_HOME, check default system java & javac in PATH
     if not java_home:
-        major = check_javac_version("javac")
-        if major and major >= 17:
-            print(f"Default system javac is version {major} (>= 17). No environment override needed.")
+        javac_ver = check_java_bin_version("javac")
+        java_ver = check_java_bin_version("java")
+        if javac_ver and java_ver and javac_ver >= 17 and java_ver >= 17:
+            print(f"Default system java ({java_ver}) and javac ({javac_ver}) are compatible. No override needed.")
             return
+        else:
+            print(f"Default system Java is incompatible or mismatched (javac: {javac_ver}, java: {java_ver}). Searching for compatible JDK...")
 
     # 3. Search for any installed JDK >= 17 on Linux/Unix
     search_paths = ["/usr/lib/jvm", "/usr/java", "/opt"]
@@ -60,9 +69,14 @@ def setup_java_home():
                     for entry in entries:
                         full_path = os.path.join(base, entry)
                         if os.path.isdir(full_path) and version in entry:
-                            if os.path.exists(os.path.join(full_path, "bin", "javac")):
-                                found_path = full_path
-                                break
+                            javac_path = os.path.join(full_path, "bin", "javac")
+                            java_path = os.path.join(full_path, "bin", "java")
+                            if os.path.exists(javac_path) and os.path.exists(java_path):
+                                javac_ver = check_java_bin_version(javac_path)
+                                java_ver = check_java_bin_version(java_path)
+                                if javac_ver and java_ver and javac_ver >= 17 and java_ver >= 17:
+                                    found_path = full_path
+                                    break
                     if found_path:
                         break
                 if found_path:
@@ -79,10 +93,15 @@ def setup_java_home():
                 for version in candidate_versions:
                     for entry in entries:
                         full_path = os.path.join(mac_base, entry, "Contents/Home")
-                        if os.path.exists(os.path.join(full_path, "bin", "javac")):
+                        javac_path = os.path.join(full_path, "bin", "javac")
+                        java_path = os.path.join(full_path, "bin", "java")
+                        if os.path.exists(javac_path) and os.path.exists(java_path):
                             if version in entry:
-                                found_path = full_path
-                                break
+                                javac_ver = check_java_bin_version(javac_path)
+                                java_ver = check_java_bin_version(java_path)
+                                if javac_ver and java_ver and javac_ver >= 17 and java_ver >= 17:
+                                    found_path = full_path
+                                    break
                     if found_path:
                         break
             except Exception:
