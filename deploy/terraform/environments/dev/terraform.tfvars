@@ -23,7 +23,7 @@ aws_private_subnets = {
 }
 
 # AWS Computes
-aws_instance_type      = "t3.micro"
+aws_instance_type      = "t2.micro"
 aws_app_instance_count = 1
 
 # Azure Placement
@@ -38,5 +38,5 @@ azure_subnets = {
 }
 
 # Azure Computes
-azure_vm_size  = "Standard_B2s"
+azure_vm_size  = "Standard_B1s"
 azure_vm_count = 1

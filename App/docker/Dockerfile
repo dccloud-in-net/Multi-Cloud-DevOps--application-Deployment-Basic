@@ -43,7 +43,7 @@ USER bankpro
 EXPOSE 8080
 
 # Environment variables with sensible defaults
-ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC" \
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC" \
     SPRING_PROFILES_ACTIVE="prod"
 
 # Healthcheck configuration using standard wget (alpine doesn't have curl by default)

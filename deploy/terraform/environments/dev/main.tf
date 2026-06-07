@@ -41,6 +41,8 @@ module "aws_ec2" {
   app_sg_id            = module.security.app_ec2_sg_id
   iam_instance_profile = module.security.ec2_instance_profile_name
   app_instance_count   = var.aws_app_instance_count
+  instance_type        = var.aws_instance_type
+  bastion_instance_type = var.aws_instance_type
 }
 
 # 4. AWS Application Load Balancer

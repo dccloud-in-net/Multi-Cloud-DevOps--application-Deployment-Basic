@@ -6,7 +6,7 @@
 app_name: "bankpro-microservice"
 app_port: 8080
 app_profile: "prod"
-app_jvm_opts: "-Xms512m -Xmx1024m"
+app_jvm_opts: "-Xms256m -Xmx512m"
 
 # Registry details (populated from Terraform or Environment variables)
 registry_server: ""
