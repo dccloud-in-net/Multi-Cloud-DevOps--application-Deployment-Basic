@@ -12,6 +12,7 @@ import subprocess
 import sys
 import urllib.request
 import time
+import shutil
 
 def check_java_bin_version(bin_path):
     """Runs the java/javac binary with -version and returns the major version number."""
@@ -27,6 +28,19 @@ def check_java_bin_version(bin_path):
                         ver_str = part
                         major = int(ver_str.split(".")[1]) if ver_str.startswith("1.") else int(ver_str.split(".")[0])
                         return major
+    except Exception:
+        pass
+    return None
+
+def resolve_jdk_home_from_path():
+    """Resolves the real symlinked path of javac to discover the JDK installation home folder."""
+    try:
+        javac_path = shutil.which("javac")
+        if javac_path:
+            real_javac = os.path.realpath(javac_path)
+            home = os.path.abspath(os.path.join(real_javac, "../.."))
+            if os.path.exists(os.path.join(home, "bin", "javac")):
+                return home
     except Exception:
         pass
     return None
@@ -51,10 +65,13 @@ def setup_java_home():
         javac_ver = check_java_bin_version("javac")
         java_ver = check_java_bin_version("java")
         if javac_ver and java_ver and javac_ver >= 17 and java_ver >= 17:
-            print(f"Default system java ({java_ver}) and javac ({javac_ver}) are compatible. No override needed.")
-            return
-        else:
-            print(f"Default system Java is incompatible or mismatched (javac: {javac_ver}, java: {java_ver}). Searching for compatible JDK...")
+            resolved_home = resolve_jdk_home_from_path()
+            if resolved_home:
+                print(f"Default system JDK ({java_ver}) is compatible. Explicitly setting JAVA_HOME to: {resolved_home}")
+                os.environ["JAVA_HOME"] = resolved_home
+                return
+            else:
+                print(f"Default system JDK is compatible, but could not resolve home path. Searching system folders...")
 
     # 3. Search for any installed JDK >= 17 on Linux/Unix
     search_paths = ["/usr/lib/jvm", "/usr/java", "/opt"]
