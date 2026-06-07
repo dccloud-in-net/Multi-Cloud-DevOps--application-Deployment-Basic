@@ -15,7 +15,7 @@ resource "aws_cloudwatch_log_group" "app_logs" {
 
 # CloudWatch Alarm for High CPU on AWS Auto Scaling Group (Conditional on ASG name being passed)
 resource "aws_cloudwatch_metric_alarm" "high_cpu" {
-  count               = var.asg_name != "" ? 1 : 0
+  count               = var.enable_asg_alarm ? 1 : 0
   alarm_name          = "bankpro-${var.environment}-asg-high-cpu"
   comparison_operator = "GreaterThanOrEqualToThreshold"
   evaluation_periods  = 2

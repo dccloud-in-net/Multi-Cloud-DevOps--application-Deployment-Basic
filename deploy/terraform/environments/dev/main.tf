@@ -100,5 +100,6 @@ module "monitoring" {
   resource_group_name = module.azure_network.resource_group_name
   location            = module.azure_network.location
   asg_name            = module.aws_autoscaling.asg_name
-  log_retention_days  = 14
+  enable_asg_alarm    = true
+  log_retention_days  = 30
 }

@@ -74,12 +74,19 @@ pipeline {
                     string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
                     string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
                     string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
-                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
+                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID'),
+                    sshUserPrivateKey(credentialsId: "${SSH_KEY_CREDS_ID}", keyFileVariable: 'PRIVATE_KEY_PATH')
                 ]) {
                     withEnv([
                         "AWS_DEFAULT_REGION=us-east-1",
                     ]) {
-                        sh "python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env ${env.RESOLVED_ENV}"
+                        sh """
+                            # Extract public key from private key
+                            mkdir -p deploy/keys
+                            ssh-keygen -y -f ${PRIVATE_KEY_PATH} > deploy/keys/bankpro_deploy_key.pub
+                            export TF_VAR_ssh_public_key="\$(cat deploy/keys/bankpro_deploy_key.pub)"
+                            python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env ${env.RESOLVED_ENV}
+                        """
                     }
                 }
             }

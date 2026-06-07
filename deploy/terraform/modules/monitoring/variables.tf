@@ -24,3 +24,10 @@ variable "log_retention_days" {
   default     = 30
   description = "Number of days to retain metrics/logs"
 }
+
+variable "enable_asg_alarm" {
+  type        = bool
+  default     = false
+  description = "Flag to enable AWS Auto Scaling Group CloudWatch CPU alarms"
+}
+

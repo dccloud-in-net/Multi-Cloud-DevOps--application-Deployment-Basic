@@ -54,17 +54,19 @@ jobs:
         with:
           terraform_version: 1.6.2
 
-      # Run Terraform Apply via Python Runner
-      - name: "Run Terraform Apply"
-        run: |
-          python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env $ENV
-
       # Setup SSH key for Ansible
       - name: "Install SSH Key"
         run: |
           mkdir -p deploy/keys
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy/keys/bankpro_deploy_key
           chmod 600 deploy/keys/bankpro_deploy_key
+
+      # Run Terraform Apply via Python Runner
+      - name: "Run Terraform Apply"
+        run: |
+          ssh-keygen -y -f deploy/keys/bankpro_deploy_key > deploy/keys/bankpro_deploy_key.pub
+          export TF_VAR_ssh_public_key="$(cat deploy/keys/bankpro_deploy_key.pub)"
+          python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env $ENV
 
       # Setup Ansible
       - name: "Install Ansible"
