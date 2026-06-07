@@ -87,6 +87,13 @@ pipeline {
                             echo "" >> deploy/keys/bankpro_deploy_key
                             chmod 600 deploy/keys/bankpro_deploy_key
 
+                            # Format check
+                            echo "=== DEBUG KEY FORMAT ==="
+                            head -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
+                            tail -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
+                            wc -l deploy/keys/bankpro_deploy_key
+                            echo "========================"
+
                             # Extract public key from secured private key
                             ssh-keygen -y -f deploy/keys/bankpro_deploy_key > deploy/keys/bankpro_deploy_key.pub
                             export TF_VAR_ssh_public_key="\$(cat deploy/keys/bankpro_deploy_key.pub)"
