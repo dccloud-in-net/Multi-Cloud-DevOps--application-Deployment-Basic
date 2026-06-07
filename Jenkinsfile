@@ -10,6 +10,7 @@ pipeline {
         choice(name: 'DEPLOY_ENV', choices: ['auto', 'dev', 'stage', 'prod'], description: 'Target deployment environment (auto resolves based on git branch)')
         booleanParam(name: 'RUN_TERRAFORM', defaultValue: true, description: 'Whether to run Terraform Apply')
         booleanParam(name: 'RUN_DEPLOYMENT', defaultValue: true, description: 'Whether to run Ansible Application deployment')
+        booleanParam(name: 'DESTROY_INFRASTRUCTURE', defaultValue: false, description: 'DESTROY all infrastructure for the selected environment (WARNING: irreversible!)')
     }
 
     environment {
@@ -41,6 +42,9 @@ pipeline {
         }
 
         stage('Maven Build & Test') {
+            when {
+                expression { return !params.DESTROY_INFRASTRUCTURE }
+            }
             steps {
                 // Call master Python runner to compile and execute unit tests
                 sh "python3 deploy/scripts/pipeline_runner.py --stage build"
@@ -48,6 +52,9 @@ pipeline {
         }
 
         stage('Docker Build & Push') {
+            when {
+                expression { return !params.DESTROY_INFRASTRUCTURE }
+            }
             steps {
                 // Bind registry username/password and call Python runner
                 withCredentials([usernamePassword(credentialsId: "${REGISTRY_CREDS_ID}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
@@ -65,7 +72,10 @@ pipeline {
 
         stage('Terraform Apply') {
             when {
-                expression { return params.RUN_TERRAFORM }
+                allOf {
+                    expression { return params.RUN_TERRAFORM }
+                    expression { return !params.DESTROY_INFRASTRUCTURE }
+                }
             }
             steps {
                 // Bind cloud provider credentials and call Python runner to execute Terraform lifecycle
@@ -108,7 +118,10 @@ pipeline {
 
         stage('Ansible Provision & Deploy') {
             when {
-                expression { return params.RUN_DEPLOYMENT }
+                allOf {
+                    expression { return params.RUN_DEPLOYMENT }
+                    expression { return !params.DESTROY_INFRASTRUCTURE }
+                }
             }
             steps {
                 // Bind SSH Key & Registry Credentials, then call Python runner to build inventory and trigger playbooks
@@ -137,9 +150,45 @@ pipeline {
         }
 
         stage('Smoke Test') {
+            when {
+                expression { return !params.DESTROY_INFRASTRUCTURE }
+            }
             steps {
                 // Call master Python runner to fetch endpoints and verify status codes
                 sh "python3 deploy/scripts/pipeline_runner.py --stage smoke-test --env ${env.RESOLVED_ENV}"
+            }
+        }
+
+        stage('Terraform Destroy') {
+            when {
+                expression { return params.DESTROY_INFRASTRUCTURE }
+            }
+            steps {
+                withCredentials([
+                    usernamePassword(credentialsId: "${AWS_CREDS_ID}", usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY'),
+                    string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
+                    string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
+                    string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
+                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID'),
+                    sshUserPrivateKey(credentialsId: "${SSH_KEY_CREDS_ID}", keyFileVariable: 'PRIVATE_KEY_PATH')
+                ]) {
+                    withEnv([
+                        "AWS_DEFAULT_REGION=us-east-1",
+                    ]) {
+                        sh """
+                            # Copy, sanitize carriage returns, and ensure a trailing newline
+                            mkdir -p deploy/keys
+                            cat ${PRIVATE_KEY_PATH} | tr -d '\\r' > deploy/keys/bankpro_deploy_key
+                            echo "" >> deploy/keys/bankpro_deploy_key
+                            chmod 600 deploy/keys/bankpro_deploy_key
+
+                            # Extract public key from secured private key
+                            ssh-keygen -y -f deploy/keys/bankpro_deploy_key > deploy/keys/bankpro_deploy_key.pub
+                            export TF_VAR_ssh_public_key="\$(cat deploy/keys/bankpro_deploy_key.pub)"
+                            python3 deploy/scripts/pipeline_runner.py --stage terraform-destroy --env ${env.RESOLVED_ENV}
+                        """
+                    }
+                }
             }
         }
     }
