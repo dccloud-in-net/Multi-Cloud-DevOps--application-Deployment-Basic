@@ -16,7 +16,7 @@ pipeline {
         // Pinned Credential IDs configured inside Jenkins Dashboard
         AWS_CREDS_ID      = 'aws-creds'
         REGISTRY_CREDS_ID = 'dockerhub-creds'
-        SSH_KEY_CREDS_ID  = 'kubeadm-ssh-key'
+        SSH_KEY_CREDS_ID  = 'kubeadm-ssh-key2'
 
         // Docker Hub Container Registry parameters
         REGISTRY_SERVER   = 'docker.io'
@@ -75,7 +75,7 @@ pipeline {
                     string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
                     string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
                     string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID'),
-                    sshUserPrivateKey(credentialsId: "${SSH_KEY_CREDS_ID}", keyFileVariable: 'PRIVATE_KEY_PATH')
+                    usernamePassword(credentialsId: "${SSH_KEY_CREDS_ID}", usernameVariable: 'SSH_USER', passwordVariable: 'SSH_KEY_TEXT')
                 ]) {
                     withEnv([
                         "AWS_DEFAULT_REGION=us-east-1",
@@ -83,17 +83,14 @@ pipeline {
                         sh """
                             # Copy, sanitize carriage returns, and ensure a trailing newline
                             mkdir -p deploy/keys
-                            cat ${PRIVATE_KEY_PATH} | tr -d '\\r' > deploy/keys/bankpro_deploy_key
-                            echo "" >> deploy/keys/bankpro_deploy_key
+                            printf '%s\\n' "\$SSH_KEY_TEXT" | tr -d '\\r' > deploy/keys/bankpro_deploy_key
                             chmod 600 deploy/keys/bankpro_deploy_key
 
                             # Format check
                             echo "=== DEBUG KEY FORMAT ==="
-                            ls -la ${PRIVATE_KEY_PATH}
-                            wc -l ${PRIVATE_KEY_PATH}
+                            wc -l deploy/keys/bankpro_deploy_key
                             head -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
                             tail -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
-                            wc -l deploy/keys/bankpro_deploy_key
                             echo "========================"
 
                             # Extract public key from secured private key
@@ -113,14 +110,13 @@ pipeline {
             steps {
                 // Bind SSH Key & Registry Credentials, then call Python runner to build inventory and trigger playbooks
                 withCredentials([
-                    sshUserPrivateKey(credentialsId: "${SSH_KEY_CREDS_ID}", keyFileVariable: 'PRIVATE_KEY_PATH'),
+                    usernamePassword(credentialsId: "${SSH_KEY_CREDS_ID}", usernameVariable: 'SSH_USER', passwordVariable: 'SSH_KEY_TEXT'),
                     usernamePassword(credentialsId: "${REGISTRY_CREDS_ID}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')
                 ]) {
                     sh """
                         # Setup transient keys
                         mkdir -p deploy/keys
-                        cat ${PRIVATE_KEY_PATH} | tr -d '\\r' > deploy/keys/bankpro_deploy_key
-                        echo "" >> deploy/keys/bankpro_deploy_key
+                        printf '%s\\n' "\$SSH_KEY_TEXT" | tr -d '\\r' > deploy/keys/bankpro_deploy_key
                         chmod 600 deploy/keys/bankpro_deploy_key
 
                         # Call Python runner to generate hosts and execute plays
