@@ -116,7 +116,7 @@ resource "azurerm_subnet_network_security_group_association" "subnet_assoc" {
 
 # Create ACR for Docker Images
 resource "azurerm_container_registry" "acr" {
-  count               = var.create_acr ? 1 : 0
+  count = var.create_acr ? 1 : 0
   # ACR name must be alphanumeric globally unique and between 5-50 characters
   name                = "bankproregistry${var.environment}sub"
   resource_group_name = azurerm_resource_group.main.name

@@ -76,7 +76,7 @@ resource "aws_nat_gateway" "nat" {
   count         = var.enable_nat_gateway ? 1 : 0
   allocation_id = aws_eip.nat[0].id
   # Retrieve the ID of the first public subnet in the map keyset
-  subnet_id     = values(aws_subnet.public)[0].id
+  subnet_id = values(aws_subnet.public)[0].id
 
   tags = {
     Name        = "bankpro-${var.environment}-nat-gw"

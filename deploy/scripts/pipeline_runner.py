@@ -13,6 +13,70 @@ import sys
 import urllib.request
 import time
 
+def setup_java_home():
+    """Detects if Java is >= 17, and configures JAVA_HOME to a compatible version if not."""
+    # 1. Check if default javac is already >= 17
+    try:
+        res = subprocess.run(["javac", "-version"], capture_output=True, text=True)
+        output = res.stdout + res.stderr
+        parts = output.strip().split()
+        if len(parts) >= 2:
+            ver_str = parts[1]
+            major = int(ver_str.split(".")[1]) if ver_str.startswith("1.") else int(ver_str.split(".")[0])
+            if major >= 17:
+                print(f"Default Java version is {major} (>= 17). No environment override needed.")
+                return
+    except Exception:
+        pass
+
+    # 2. Search for any installed JDK >= 17 on Linux/Unix
+    search_paths = ["/usr/lib/jvm", "/usr/java", "/opt"]
+    found_path = None
+    
+    candidate_versions = ["17", "21", "22", "23", "24", "18", "19", "20"]
+    for base in search_paths:
+        if os.path.exists(base):
+            try:
+                entries = os.listdir(base)
+                for version in candidate_versions:
+                    for entry in entries:
+                        full_path = os.path.join(base, entry)
+                        if os.path.isdir(full_path) and version in entry:
+                            if os.path.exists(os.path.join(full_path, "bin", "javac")):
+                                found_path = full_path
+                                break
+                    if found_path:
+                        break
+                if found_path:
+                    break
+            except Exception:
+                pass
+
+    # 3. Search on macOS
+    if not found_path and sys.platform == "darwin":
+        mac_base = "/Library/Java/JavaVirtualMachines"
+        if os.path.exists(mac_base):
+            try:
+                entries = os.listdir(mac_base)
+                for version in candidate_versions:
+                    for entry in entries:
+                        full_path = os.path.join(mac_base, entry, "Contents/Home")
+                        if os.path.exists(os.path.join(full_path, "bin", "javac")):
+                            if version in entry:
+                                found_path = full_path
+                                break
+                    if found_path:
+                        break
+            except Exception:
+                pass
+
+    if found_path:
+        print(f"Configuring pipeline environment to use detected JDK at: {found_path}")
+        os.environ["JAVA_HOME"] = found_path
+        os.environ["PATH"] = os.path.join(found_path, "bin") + os.pathsep + os.environ.get("PATH", "")
+    else:
+        print("Warning: Compatible Java version (>= 17) not auto-detected. Relying on system default Java.")
+
 def run_command(command, cwd=None, env=None):
     """Utility function to safely execute shell commands and stream output."""
     print(f"Running command: {' '.join(command)}")
@@ -182,6 +246,9 @@ def main():
     parser.add_argument("--password", default="")
 
     args = parser.parse_args()
+
+    # Automatically set up Java 17 environment
+    setup_java_home()
 
     script_dir = os.path.dirname(os.path.realpath(__file__))
     root_dir = os.path.abspath(os.path.join(script_dir, "../.."))

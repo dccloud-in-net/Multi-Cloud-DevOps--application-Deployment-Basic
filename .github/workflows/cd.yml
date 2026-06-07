@@ -4,6 +4,8 @@
 name: "BankPro CD Pipeline"
 
 on:
+  push:
+    branches: [ "dev", "stage", "main" ]
   workflow_dispatch:
     inputs:
       environment:
@@ -24,7 +26,9 @@ jobs:
     name: "Infrastructure & App Deployment"
     runs-on: ubuntu-latest
     env:
-      ENV: ${{ github.event.inputs.environment }}
+      ENV: >-
+        ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment ||
+            (github.ref_name == 'main' && 'prod' || github.ref_name) }}
 
     steps:
       - name: "Checkout repository"

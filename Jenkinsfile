@@ -7,7 +7,7 @@ pipeline {
     agent any
 
     parameters {
-        choice(name: 'DEPLOY_ENV', choices: ['dev', 'stage', 'prod'], description: 'Target deployment environment')
+        choice(name: 'DEPLOY_ENV', choices: ['auto', 'dev', 'stage', 'prod'], description: 'Target deployment environment (auto resolves based on git branch)')
         booleanParam(name: 'RUN_TERRAFORM', defaultValue: true, description: 'Whether to run Terraform Apply')
         booleanParam(name: 'RUN_DEPLOYMENT', defaultValue: true, description: 'Whether to run Ansible Application deployment')
     }
@@ -22,6 +22,9 @@ pipeline {
         REGISTRY_SERVER   = 'docker.io'
         IMAGE_NAME        = 'dccloudimage/bankpro-microservice'
         IMAGE_TAG         = "${BUILD_NUMBER}"
+
+        // Resolve target environment from branch name or parameter
+        RESOLVED_ENV      = "${params.DEPLOY_ENV == 'auto' ? ((env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? 'prod' : (env.BRANCH_NAME == 'stage' ? 'stage' : 'dev')) : params.DEPLOY_ENV}"
     }
 
     options {
@@ -76,7 +79,7 @@ pipeline {
                     withEnv([
                         "AWS_DEFAULT_REGION=us-east-1",
                     ]) {
-                        sh "python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env ${params.DEPLOY_ENV}"
+                        sh "python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env ${env.RESOLVED_ENV}"
                     }
                 }
             }
@@ -100,7 +103,7 @@ pipeline {
 
                         # Call Python runner to generate hosts and execute plays
                         python3 deploy/scripts/pipeline_runner.py --stage deploy \
-                            --env ${params.DEPLOY_ENV} \
+                            --env ${env.RESOLVED_ENV} \
                             --registry ${REGISTRY_SERVER} \
                             --image ${IMAGE_NAME} \
                             --tag ${IMAGE_TAG} \
@@ -114,7 +117,7 @@ pipeline {
         stage('Smoke Test') {
             steps {
                 // Call master Python runner to fetch endpoints and verify status codes
-                sh "python3 deploy/scripts/pipeline_runner.py --stage smoke-test --env ${params.DEPLOY_ENV}"
+                sh "python3 deploy/scripts/pipeline_runner.py --stage smoke-test --env ${env.RESOLVED_ENV}"
             }
         }
     }

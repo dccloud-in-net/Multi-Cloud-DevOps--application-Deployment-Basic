@@ -78,8 +78,8 @@ resource "aws_autoscaling_group" "app" {
   max_size         = var.max_size
   desired_capacity = var.desired_capacity
 
-  force_delete          = true
-  health_check_type     = "ELB"
+  force_delete              = true
+  health_check_type         = "ELB"
   health_check_grace_period = 300
 
   launch_template {

@@ -1,5 +1,5 @@
 # ==============================================================================
-# BankPro Multi-Cloud Dev Environment Main Entry
+# BankPro Multi-Cloud Stage Environment Main Entry
 # ==============================================================================
 
 # AWS Key Pair mapping
@@ -64,9 +64,9 @@ module "aws_autoscaling" {
   key_name             = aws_key_pair.deployer.key_name
   iam_instance_profile = module.security.ec2_instance_profile_name
   target_group_arn     = module.aws_alb.target_group_arn
-  min_size             = 1
-  max_size             = 2
-  desired_capacity     = 1
+  min_size             = 2
+  max_size             = 4
+  desired_capacity     = 2
 }
 
 # 6. Azure Resource Group, VNet, NSG & Container Registry
@@ -100,5 +100,5 @@ module "monitoring" {
   resource_group_name = module.azure_network.resource_group_name
   location            = module.azure_network.location
   asg_name            = module.aws_autoscaling.asg_name
-  log_retention_days  = 14
+  log_retention_days  = 30
 }

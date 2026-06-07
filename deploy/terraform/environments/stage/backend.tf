@@ -1,5 +1,5 @@
 # ==============================================================================
-# Terraform Backend Configuration - Dev
+# Terraform Backend Configuration - Stage
 # ==============================================================================
 
 terraform {
@@ -7,6 +7,6 @@ terraform {
     resource_group_name  = "REVA-RACE-PROJECT-ACCESS"
     storage_account_name = "devopsracerevaprodccloud"
     container_name       = "revaprotfstate"
-    key                  = "dev.aks-multicloudapp.tfstate"
+    key                  = "stage.aks-multicloudapp.tfstate"
   }
 }
