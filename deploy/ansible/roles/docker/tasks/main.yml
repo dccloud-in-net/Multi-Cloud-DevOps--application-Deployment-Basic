@@ -1,0 +1,71 @@
+---
+# ==============================================================================
+# Docker Installation Role Tasks
+# ==============================================================================
+
+- name: Install Docker on RedHat/Amazon Linux family
+  block:
+    - name: Install docker package
+      yum:
+        name: docker
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Install Docker on Debian/Ubuntu family
+  block:
+    - name: Install prerequisite packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - software-properties-common
+        state: present
+        update_cache: yes
+
+    - name: Add Docker official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker engine packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+  when: ansible_os_family == "Debian"
+
+- name: Create docker group (if not exists)
+  group:
+    name: docker
+    state: present
+
+- name: Add user accounts to docker group
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: yes
+  loop: "{{ docker_group_users }}"
+  ignore_errors: yes

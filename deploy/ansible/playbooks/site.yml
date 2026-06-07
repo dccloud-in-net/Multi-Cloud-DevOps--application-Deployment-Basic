@@ -1,0 +1,14 @@
+---
+# ==============================================================================
+# Master Site Provisioning Playbook
+# ==============================================================================
+
+- name: Provision Web and Application Server Nodes
+  hosts: app_servers
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - docker
+    - java
+    - nginx

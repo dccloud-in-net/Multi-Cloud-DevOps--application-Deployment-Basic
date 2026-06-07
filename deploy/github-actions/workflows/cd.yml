@@ -1,0 +1,85 @@
+# ==============================================================================
+# GitHub Actions Continuous Deployment (CD) Workflow
+# ==============================================================================
+name: "BankPro CD Pipeline"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy Environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stage
+          - prod
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-deploy:
+    name: "Infrastructure & App Deployment"
+    runs-on: ubuntu-latest
+    env:
+      ENV: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+
+      # Configure AWS
+      - name: "Configure AWS credentials"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # Configure Azure
+      - name: "Log in to Azure CLI"
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Setup Terraform
+      - name: "Set up Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.2
+
+      # Run Terraform Apply via Python Runner
+      - name: "Run Terraform Apply"
+        run: |
+          python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env $ENV
+
+      # Setup SSH key for Ansible
+      - name: "Install SSH Key"
+        run: |
+          mkdir -p deploy/keys
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > deploy/keys/bankpro_deploy_key
+          chmod 600 deploy/keys/bankpro_deploy_key
+
+      # Setup Ansible
+      - name: "Install Ansible"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      # Run Ansible provisioning and deployment via Python Runner
+      - name: "Run Ansible Provision & Deploy"
+        run: |
+          python3 deploy/scripts/pipeline_runner.py --stage deploy \
+            --env $ENV \
+            --registry bankproregistryprodsub.azurecr.io \
+            --image bankpro-microservice \
+            --tag ${{ github.sha }} \
+            --username ${{ secrets.ACR_USERNAME }} \
+            --password ${{ secrets.ACR_PASSWORD }}
+
+      # Smoke Test / Verification via Python Runner
+      - name: "Verify Endpoints (Smoke Test)"
+        run: |
+          python3 deploy/scripts/pipeline_runner.py --stage smoke-test --env $ENV

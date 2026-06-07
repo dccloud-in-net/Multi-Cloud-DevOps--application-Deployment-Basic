@@ -1,0 +1,39 @@
+# ==============================================================================
+# BankPro Multi-Cloud DevOps Platform GitIgnore
+# ==============================================================================
+
+# 1. Terraform Ignore Rules
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*tfplan*
+.terraform.lock.hcl
+
+# 2. Maven Build Ignore Rules
+**/target/
+*.jar
+*.war
+*.ear
+
+# 3. Keys and Sensitive Credentials
+**/keys/
+*.pem
+*.key
+*.pub
+*bankpro_deploy_key*
+
+# 4. OS & IDE Specific files
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# 5. Logs & Temporary Files
+*.log
+deploy/ansible/inventory/hosts.ini

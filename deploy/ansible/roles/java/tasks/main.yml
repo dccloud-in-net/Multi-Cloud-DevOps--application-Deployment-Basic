@@ -1,0 +1,27 @@
+---
+# ==============================================================================
+# Java Installation Role Tasks
+# ==============================================================================
+
+- name: Install OpenJDK 17 on RedHat/Amazon Linux
+  yum:
+    name: java-17-amazon-corretto-devel
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Install OpenJDK 17 on Debian/Ubuntu
+  apt:
+    name: openjdk-17-jdk-headless
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Verify java installation
+  command: java -version
+  register: java_verify
+  changed_when: false
+
+- name: Print java version string
+  debug:
+    msg: "{{ java_verify.stderr_lines | default(java_verify.stdout_lines) }}"

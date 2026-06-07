@@ -1,0 +1,33 @@
+---
+# ==============================================================================
+# Nginx Reverse Proxy Installation Role Tasks
+# ==============================================================================
+
+- name: Install Nginx on RedHat/Amazon Linux
+  yum:
+    name: nginx
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Install Nginx on Debian/Ubuntu
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Write Nginx reverse proxy configuration template
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart Nginx
+
+- name: Ensure Nginx is running and enabled on boot
+  service:
+    name: nginx
+    state: started
+    enabled: yes

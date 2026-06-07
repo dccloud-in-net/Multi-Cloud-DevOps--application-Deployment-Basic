@@ -1,0 +1,104 @@
+---
+# ==============================================================================
+# Blue-Green Zero-Downtime Application Deployment Tasks
+# ==============================================================================
+
+# 1. Login to Container Registry (Conditional on registry details being provided)
+- name: Log in to Docker Registry
+  docker_login:
+    registry_url: "{{ registry_server }}"
+    username: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+  when: registry_server != "" and registry_username != ""
+
+# 2. Pull the updated application image
+- name: Pull application Docker image
+  docker_image:
+    name: "{{ registry_server }}/{{ image_name }}"
+    tag: "{{ image_tag }}"
+    source: pull
+    force_source: yes
+  register: pull_result
+  retries: 3
+  delay: 10
+  when: registry_server != ""
+
+# Fallback pull if registry_server is empty (local build test)
+- name: Pull local/stub Docker image
+  docker_image:
+    name: "{{ image_name }}"
+    tag: "{{ image_tag }}"
+    source: pull
+  when: registry_server == ""
+
+# 3. Inspect running containers to determine current active color
+- name: Check if blue container is running
+  command: docker ps --filter "name=bankpro-blue" --filter "status=running" -q
+  register: blue_status
+  changed_when: false
+
+- name: Check if green container is running
+  command: docker ps --filter "name=bankpro-green" --filter "status=running" -q
+  register: green_status
+  changed_when: false
+
+- name: Set Active Color and Ports
+  set_fact:
+    current_active: "{{ 'blue' if blue_status.stdout != '' else ('green' if green_status.stdout != '' else 'none') }}"
+    next_deploy: "{{ 'green' if blue_status.stdout != '' else 'blue' }}"
+    next_port: "{{ 8081 if blue_status.stdout != '' else 8080 }}"
+    old_port: "{{ 8080 if blue_status.stdout != '' else 8081 }}"
+
+- name: Log deployment intent
+  debug:
+    msg: "Active: {{ current_active }}. Target: {{ next_deploy }} on Port {{ next_port }}."
+
+# 4. Spin up the next deployment container
+- name: Start the next deployment container
+  docker_container:
+    name: "bankpro-{{ next_deploy }}"
+    image: "{{ registry_server + '/' if registry_server != '' else '' }}{{ image_name }}:{{ image_tag }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "{{ next_port }}:8080"
+    env:
+      SPRING_PROFILES_ACTIVE: "{{ app_profile }}"
+      JAVA_OPTS: "{{ app_jvm_opts }}"
+    log_driver: "json-file"
+    log_options:
+      max-size: "10m"
+      max-file: "3"
+
+# 5. Run health check/smoke test against the new container
+- name: Wait for new container to become healthy (Smoke Test)
+  uri:
+    url: "http://localhost:{{ next_port }}/"
+    status_code: 200
+  register: health_check
+  until: health_check.status == 200
+  retries: 15
+  delay: 6
+
+# 6. Update Nginx configuration upstream port to point to the new container
+- name: Update Nginx server config block active target
+  template:
+    src: ../../nginx/templates/nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: '0644'
+  vars:
+    app_port: "{{ next_port }}"
+
+- name: Reload Nginx (Applies swap with zero downtime)
+  service:
+    name: nginx
+    state: reloaded
+
+# 7. Stop and clean up the old container
+- name: Stop and remove old application container
+  docker_container:
+    name: "bankpro-{{ current_active }}"
+    state: absent
+  when: current_active != "none"

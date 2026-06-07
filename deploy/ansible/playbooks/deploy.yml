@@ -1,0 +1,12 @@
+---
+# ==============================================================================
+# Master Application Deployment Playbook
+# ==============================================================================
+
+- name: Deploy BankPro Microservice Application
+  hosts: app_servers
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - app-deploy
