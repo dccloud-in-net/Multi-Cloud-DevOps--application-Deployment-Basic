@@ -69,6 +69,7 @@ def main():
         for idx, ip in enumerate(aws_app_ips):
             inventory_lines.append(
                 f"aws-node-{idx+1} ansible_host={ip} ansible_user=ec2-user "
+                f"ansible_ssh_private_key_file=../keys/bankpro_deploy_key "
                 f"ansible_ssh_common_args='-o ProxyCommand=\"ssh -W %h:%p -q ec2-user@{bastion_ip} "
                 f"-i ../keys/bankpro_deploy_key -o StrictHostKeyChecking=no\"'"
             )
