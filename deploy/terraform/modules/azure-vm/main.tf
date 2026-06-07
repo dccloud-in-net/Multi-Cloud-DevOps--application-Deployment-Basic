@@ -72,8 +72,8 @@ resource "azurerm_public_ip" "vm_pip" {
   name                = "bankpro-${var.environment}-vm-pip-${count.index + 1}"
   resource_group_name = var.resource_group_name
   location            = var.location
-  allocation_method   = "Dynamic"
-  sku                 = "Basic"
+  allocation_method   = "Static"
+  sku                 = "Standard"
 
   tags = {
     Environment = var.environment
