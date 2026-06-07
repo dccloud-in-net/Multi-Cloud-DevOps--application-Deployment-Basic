@@ -81,9 +81,13 @@ pipeline {
                         "AWS_DEFAULT_REGION=us-east-1",
                     ]) {
                         sh """
-                            # Extract public key from private key
+                            # Copy and secure the private key first
                             mkdir -p deploy/keys
-                            ssh-keygen -y -f ${PRIVATE_KEY_PATH} > deploy/keys/bankpro_deploy_key.pub
+                            cp ${PRIVATE_KEY_PATH} deploy/keys/bankpro_deploy_key
+                            chmod 600 deploy/keys/bankpro_deploy_key
+
+                            # Extract public key from secured private key
+                            ssh-keygen -y -f deploy/keys/bankpro_deploy_key > deploy/keys/bankpro_deploy_key.pub
                             export TF_VAR_ssh_public_key="\$(cat deploy/keys/bankpro_deploy_key.pub)"
                             python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env ${env.RESOLVED_ENV}
                         """
