@@ -89,6 +89,8 @@ pipeline {
 
                             # Format check
                             echo "=== DEBUG KEY FORMAT ==="
+                            ls -la ${PRIVATE_KEY_PATH}
+                            wc -l ${PRIVATE_KEY_PATH}
                             head -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
                             tail -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
                             wc -l deploy/keys/bankpro_deploy_key
