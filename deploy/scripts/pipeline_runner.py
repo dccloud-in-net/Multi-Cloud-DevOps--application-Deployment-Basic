@@ -13,23 +13,41 @@ import sys
 import urllib.request
 import time
 
-def setup_java_home():
-    """Detects if Java is >= 17, and configures JAVA_HOME to a compatible version if not."""
-    # 1. Check if default javac is already >= 17
+def check_javac_version(javac_path):
+    """Runs javac -version for the given path and returns the major version number."""
     try:
-        res = subprocess.run(["javac", "-version"], capture_output=True, text=True)
+        res = subprocess.run([javac_path, "-version"], capture_output=True, text=True)
         output = res.stdout + res.stderr
         parts = output.strip().split()
         if len(parts) >= 2:
             ver_str = parts[1]
             major = int(ver_str.split(".")[1]) if ver_str.startswith("1.") else int(ver_str.split(".")[0])
-            if major >= 17:
-                print(f"Default Java version is {major} (>= 17). No environment override needed.")
-                return
+            return major
     except Exception:
         pass
+    return None
 
-    # 2. Search for any installed JDK >= 17 on Linux/Unix
+def setup_java_home():
+    """Detects if Java is >= 17, and configures JAVA_HOME to a compatible version if not."""
+    # 1. Check if existing JAVA_HOME is compatible
+    java_home = os.environ.get("JAVA_HOME")
+    if java_home:
+        javac_path = os.path.join(java_home, "bin", "javac")
+        major = check_javac_version(javac_path)
+        if major and major >= 17:
+            print(f"JAVA_HOME is already configured to a compatible version: {major} ({java_home})")
+            return
+        else:
+            print(f"Existing JAVA_HOME ({java_home}) is set to version {major}, which is < 17. Searching for compatible JDK...")
+
+    # 2. If no compatible JAVA_HOME, check default javac in PATH
+    if not java_home:
+        major = check_javac_version("javac")
+        if major and major >= 17:
+            print(f"Default system javac is version {major} (>= 17). No environment override needed.")
+            return
+
+    # 3. Search for any installed JDK >= 17 on Linux/Unix
     search_paths = ["/usr/lib/jvm", "/usr/java", "/opt"]
     found_path = None
     
@@ -52,7 +70,7 @@ def setup_java_home():
             except Exception:
                 pass
 
-    # 3. Search on macOS
+    # 4. Search on macOS
     if not found_path and sys.platform == "darwin":
         mac_base = "/Library/Java/JavaVirtualMachines"
         if os.path.exists(mac_base):
