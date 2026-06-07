@@ -16,7 +16,7 @@ pipeline {
         // Pinned Credential IDs configured inside Jenkins Dashboard
         AWS_CREDS_ID      = 'aws-creds'
         REGISTRY_CREDS_ID = 'dockerhub-creds'
-        SSH_KEY_CREDS_ID  = 'kubeadm-ssh-key'
+        SSH_KEY_CREDS_ID  = 'vmadmin-ssh-key'
 
         // Docker Hub Container Registry parameters
         REGISTRY_SERVER   = 'docker.io'
