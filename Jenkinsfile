@@ -74,30 +74,67 @@ pipeline {
                     string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
                     string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
                     string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
-                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID'),
-                    usernamePassword(credentialsId: "${SSH_KEY_CREDS_ID}", usernameVariable: 'SSH_USER', passwordVariable: 'SSH_KEY_TEXT')
+                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
                 ]) {
                     withEnv([
                         "AWS_DEFAULT_REGION=us-east-1",
                     ]) {
-                        sh """
-                            # Copy, sanitize carriage returns, and ensure a trailing newline
-                            mkdir -p deploy/keys
-                            printf '%s\\n' "\$SSH_KEY_TEXT" | tr -d '\\r' > deploy/keys/bankpro_deploy_key
-                            chmod 600 deploy/keys/bankpro_deploy_key
+                        script {
+                            def boundSuccessfully = false
+                            
+                            // Try Option 1: kubeadm-ssh-key2 as Username with Password
+                            try {
+                                echo "Attempting to bind SSH key using kubeadm-ssh-key2 (Username with Password)..."
+                                withCredentials([usernamePassword(credentialsId: 'kubeadm-ssh-key2', usernameVariable: 'SSH_USER', passwordVariable: 'SSH_KEY_TEXT')]) {
+                                    sh """
+                                        mkdir -p deploy/keys
+                                        printf '%s\\n' "\$SSH_KEY_TEXT" | tr -d '\\r' > deploy/keys/bankpro_deploy_key
+                                        chmod 600 deploy/keys/bankpro_deploy_key
+                                    """
+                                }
+                                boundSuccessfully = true
+                                echo "Successfully bound SSH key using kubeadm-ssh-key2."
+                            } catch (Exception e1) {
+                                echo "Failed to bind kubeadm-ssh-key2: ${e1.getMessage()}"
+                            }
 
-                            # Format check
-                            echo "=== DEBUG KEY FORMAT ==="
-                            wc -l deploy/keys/bankpro_deploy_key
-                            head -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
-                            tail -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
-                            echo "========================"
+                            // Try Option 2: Fallback to kubeadm-ssh-key as SSH User Private Key
+                            if (!boundSuccessfully) {
+                                try {
+                                    echo "Attempting fallback to kubeadm-ssh-key (SSH User Private Key)..."
+                                    withCredentials([sshUserPrivateKey(credentialsId: 'kubeadm-ssh-key', keyFileVariable: 'PRIVATE_KEY_PATH')]) {
+                                        sh """
+                                            mkdir -p deploy/keys
+                                            cat \$PRIVATE_KEY_PATH | tr -d '\\r' > deploy/keys/bankpro_deploy_key
+                                            chmod 600 deploy/keys/bankpro_deploy_key
+                                        """
+                                    }
+                                    boundSuccessfully = true
+                                    echo "Successfully bound SSH key using kubeadm-ssh-key."
+                                } catch (Exception e2) {
+                                    echo "Failed to bind kubeadm-ssh-key: ${e2.getMessage()}"
+                                }
+                            }
 
-                            # Extract public key from secured private key
-                            ssh-keygen -y -f deploy/keys/bankpro_deploy_key > deploy/keys/bankpro_deploy_key.pub
-                            export TF_VAR_ssh_public_key="\$(cat deploy/keys/bankpro_deploy_key.pub)"
-                            python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env ${env.RESOLVED_ENV}
-                        """
+                            if (!boundSuccessfully) {
+                                error "Could not find or bind any valid SSH credentials (tried kubeadm-ssh-key2 and kubeadm-ssh-key)."
+                            }
+
+                            // Run Terraform Apply
+                            sh """
+                                # Format check
+                                echo "=== DEBUG KEY FORMAT ==="
+                                wc -l deploy/keys/bankpro_deploy_key
+                                head -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
+                                tail -n 1 deploy/keys/bankpro_deploy_key | cut -c1-40
+                                echo "========================"
+
+                                # Extract public key from secured private key
+                                ssh-keygen -y -f deploy/keys/bankpro_deploy_key > deploy/keys/bankpro_deploy_key.pub
+                                export TF_VAR_ssh_public_key="\$(cat deploy/keys/bankpro_deploy_key.pub)"
+                                python3 deploy/scripts/pipeline_runner.py --stage terraform-apply --env ${env.RESOLVED_ENV}
+                            """
+                        }
                     }
                 }
             }
@@ -108,26 +145,62 @@ pipeline {
                 expression { return params.RUN_DEPLOYMENT }
             }
             steps {
-                // Bind SSH Key & Registry Credentials, then call Python runner to build inventory and trigger playbooks
+                // Bind Registry Credentials first, then handle SSH Key binding with fallback
                 withCredentials([
-                    usernamePassword(credentialsId: "${SSH_KEY_CREDS_ID}", usernameVariable: 'SSH_USER', passwordVariable: 'SSH_KEY_TEXT'),
                     usernamePassword(credentialsId: "${REGISTRY_CREDS_ID}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')
                 ]) {
-                    sh """
-                        # Setup transient keys
-                        mkdir -p deploy/keys
-                        printf '%s\\n' "\$SSH_KEY_TEXT" | tr -d '\\r' > deploy/keys/bankpro_deploy_key
-                        chmod 600 deploy/keys/bankpro_deploy_key
+                    script {
+                        def boundSuccessfully = false
+                        
+                        // Try Option 1: kubeadm-ssh-key2 as Username with Password
+                        try {
+                            echo "Attempting to bind SSH key using kubeadm-ssh-key2 (Username with Password)..."
+                            withCredentials([usernamePassword(credentialsId: 'kubeadm-ssh-key2', usernameVariable: 'SSH_USER', passwordVariable: 'SSH_KEY_TEXT')]) {
+                                sh """
+                                    mkdir -p deploy/keys
+                                    printf '%s\\n' "\$SSH_KEY_TEXT" | tr -d '\\r' > deploy/keys/bankpro_deploy_key
+                                    chmod 600 deploy/keys/bankpro_deploy_key
+                                """
+                            }
+                            boundSuccessfully = true
+                            echo "Successfully bound SSH key using kubeadm-ssh-key2."
+                        } catch (Exception e1) {
+                            echo "Failed to bind kubeadm-ssh-key2: ${e1.getMessage()}"
+                        }
 
-                        # Call Python runner to generate hosts and execute plays
-                        python3 deploy/scripts/pipeline_runner.py --stage deploy \
-                            --env ${env.RESOLVED_ENV} \
-                            --registry ${REGISTRY_SERVER} \
-                            --image ${IMAGE_NAME} \
-                            --tag ${IMAGE_TAG} \
-                            --username ${REG_USER} \
-                            --password ${REG_PASS}
-                    """
+                        // Try Option 2: Fallback to kubeadm-ssh-key as SSH User Private Key
+                        if (!boundSuccessfully) {
+                            try {
+                                echo "Attempting fallback to kubeadm-ssh-key (SSH User Private Key)..."
+                                withCredentials([sshUserPrivateKey(credentialsId: 'kubeadm-ssh-key', keyFileVariable: 'PRIVATE_KEY_PATH')]) {
+                                    sh """
+                                        mkdir -p deploy/keys
+                                        cat \$PRIVATE_KEY_PATH | tr -d '\\r' > deploy/keys/bankpro_deploy_key
+                                        chmod 600 deploy/keys/bankpro_deploy_key
+                                    """
+                                }
+                                boundSuccessfully = true
+                                echo "Successfully bound SSH key using kubeadm-ssh-key."
+                            } catch (Exception e2) {
+                                echo "Failed to bind kubeadm-ssh-key: ${e2.getMessage()}"
+                            }
+                        }
+
+                        if (!boundSuccessfully) {
+                            error "Could not find or bind any valid SSH credentials (tried kubeadm-ssh-key2 and kubeadm-ssh-key)."
+                        }
+
+                        // Call Python runner to generate hosts and execute plays
+                        sh """
+                            python3 deploy/scripts/pipeline_runner.py --stage deploy \
+                                --env ${env.RESOLVED_ENV} \
+                                --registry ${REGISTRY_SERVER} \
+                                --image ${IMAGE_NAME} \
+                                --tag ${IMAGE_TAG} \
+                                --username ${REG_USER} \
+                                --password ${REG_PASS}
+                        """
+                    }
                 }
             }
         }
